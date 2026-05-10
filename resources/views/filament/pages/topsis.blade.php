@@ -8,12 +8,12 @@
                         Sistem Pendukung Keputusan
                     </p>
                     <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                        Metode TOPSIS
+                        Metode Hybrid SAW + TOPSIS
                     </h1>
                     <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                        TOPSIS (Technique for Order Preference by Similarity to Ideal Solution) adalah metode
-                        pengambilan keputusan multikriteria yang memilih alternatif terbaik berdasarkan jarak terdekat
-                        dari solusi ideal positif dan jarak terjauh dari solusi ideal negatif.
+                        SAW (Simple Additive Weighting) dihitung terlebih dahulu untuk mendapatkan skor awal setiap
+                        alternatif, lalu TOPSIS (Technique for Order Preference by Similarity to Ideal Solution)
+                        digunakan untuk pemeringkatan akhir berdasarkan jarak ke solusi ideal positif dan negatif.
                     </p>
                 </div>
 
@@ -78,9 +78,8 @@
                     class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Langkah kerja</div>
                     <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">1. Input, 2. Simpan, 3.
-                        Hitung</div>
+                        SAW, 4. TOPSIS</div>
                 </div>
-
             </div>
 
             <div class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -148,7 +147,7 @@
 
                 <button wire:click="hitung" wire:loading.attr="disabled" wire:bind:disabled="disabledHitung"
                     class="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
-                    Hitung TOPSIS
+                    Hitung Hybrid
                 </button>
 
                 @if (!$aiConclusion)
@@ -165,9 +164,22 @@
                     $rankedResults = collect($results)->values();
                 @endphp
 
+                <div class="grid gap-4">
+                    <div
+                        class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Hasil TOPSIS Terbaik
+                        </div>
+                        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                            {{ $rankedResults->first()['name'] ?? '-' }}
+                        </div>
+                        <div class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                            Skor TOPSIS: {{ number_format($rankedResults->first()['score'] ?? 0, 4) }}
+                        </div>
+                    </div>
+                </div>
 
                 <div class="grid gap-6 xl:grid-cols-3">
-
                     <div
                         class="rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2 dark:border-slate-800 dark:bg-slate-900">
                         <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -258,29 +270,104 @@
                     </div>
                 </div>
 
-                @if ($aiConclusion)
-                    <div
-                        class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/30">
-
-                        <h3 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
-                            Kesimpulan AI
-                        </h3>
-
-                        <p class="prose prose-sm mt-3 max-w-none dark:prose-invert">
-                            {!! \Illuminate\Support\Str::markdown($aiConclusion) !!}
-                        </p>
-
-                    </div>
-                @endif
-
                 <div class="space-y-6">
                     <div
                         class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                         <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Normalisasi (Rij)
+                            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Normalisasi SAW
+                                (Rij)</h2>
+                            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                Nilai awal setiap alternatif setelah disesuaikan dengan tipe benefit atau cost.
+                            </p>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                                <thead class="bg-slate-50 dark:bg-slate-800/70">
+                                    <tr>
+                                        <th
+                                            class="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
+                                            Alternatif
+                                        </th>
+                                        @foreach ($criteriaItems as $crit)
+                                            <th
+                                                class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
+                                                {{ $crit['code'] }}
+                                            </th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                                    @foreach ($alternativeItems as $altIndex => $alt)
+                                        <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
+                                            <td
+                                                class="sticky left-0 z-10 bg-white px-4 py-3 font-medium text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                                                {{ $alt['name'] }}
+                                            </td>
+                                            @foreach ($criteriaItems as $critIndex => $crit)
+                                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
+                                                    {{ number_format(data_get($sawNormalizedMatrix, $altIndex . '.' . $critIndex, 0), 4) }}
+                                                </td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div
+                        class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Matriks Bobot SAW
+                                (Wij)</h2>
+                            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                Hasil normalisasi SAW yang sudah dikalikan bobot kriteria.
+                            </p>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                                <thead class="bg-slate-50 dark:bg-slate-800/70">
+                                    <tr>
+                                        <th
+                                            class="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
+                                            Alternatif
+                                        </th>
+                                        @foreach ($criteriaItems as $crit)
+                                            <th
+                                                class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
+                                                {{ $crit['code'] }}
+                                            </th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                                    @foreach ($alternativeItems as $altIndex => $alt)
+                                        <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
+                                            <td
+                                                class="sticky left-0 z-10 bg-white px-4 py-3 font-medium text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                                                {{ $alt['name'] }}
+                                            </td>
+                                            @foreach ($criteriaItems as $critIndex => $crit)
+                                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
+                                                    {{ number_format(data_get($sawWeightedMatrix, $altIndex . '.' . $critIndex, 0), 4) }}
+                                                </td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div
+                        class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Hasil Ranking TOPSIS
                             </h2>
                             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                Matriks hasil normalisasi setiap nilai keputusan sebelum dikalikan bobot kriteria.
+                                Semakin besar nilai preferensi, semakin dekat alternatif pada solusi ideal positif.
                             </p>
                         </div>
 
@@ -289,172 +376,8 @@
                                 <thead class="bg-slate-50 dark:bg-slate-800/70">
                                     <tr>
                                         <th
-                                            class="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
-                                            Alternatif
-                                        </th>
-                                        @foreach ($criteriaItems as $crit)
-                                            <th
-                                                class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
-                                                {{ $crit['code'] }}
-                                            </th>
-                                        @endforeach
-                                    </tr>
-                                </thead>
-                                <tbody
-                                    class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                                    @foreach ($alternativeItems as $altIndex => $alt)
-                                        <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
-                                            <td
-                                                class="sticky left-0 z-10 bg-white px-4 py-3 font-medium text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                                                {{ $alt['name'] }}
-                                            </td>
-                                            @foreach ($criteriaItems as $critIndex => $crit)
-                                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
-                                                    {{ number_format(data_get($normalizedMatrix, $altIndex . '.' . $critIndex, 0), 4) }}
-                                                </td>
-                                            @endforeach
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div
-                        class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Matriks Terbobot
-                                (Yij)</h2>
-                            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                Hasil normalisasi yang sudah dikalikan bobot kriteria.
-                            </p>
-                        </div>
-
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                                <thead class="bg-slate-50 dark:bg-slate-800/70">
-                                    <tr>
-                                        <th
-                                            class="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
-                                            Alternatif
-                                        </th>
-                                        @foreach ($criteriaItems as $crit)
-                                            <th
-                                                class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
-                                                {{ $crit['code'] }}
-                                            </th>
-                                        @endforeach
-                                    </tr>
-                                </thead>
-                                <tbody
-                                    class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                                    @foreach ($alternativeItems as $altIndex => $alt)
-                                        <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
-                                            <td
-                                                class="sticky left-0 z-10 bg-white px-4 py-3 font-medium text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                                                {{ $alt['name'] }}
-                                            </td>
-                                            @foreach ($criteriaItems as $critIndex => $crit)
-                                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
-                                                    {{ number_format(data_get($weightedMatrix, $altIndex . '.' . $critIndex, 0), 4) }}
-                                                </td>
-                                            @endforeach
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-6 xl:grid-cols-2">
-                        <div
-                            class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                            <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Solusi Ideal
-                                    Positif</h2>
-                                <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                    Nilai terbaik untuk setiap kriteria sesuai tipe benefit atau cost.
-                                </p>
-                            </div>
-
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                                    <thead class="bg-slate-50 dark:bg-slate-800/70">
-                                        <tr>
-                                            @foreach ($criteriaItems as $crit)
-                                                <th
-                                                    class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
-                                                    {{ $crit['code'] }}
-                                                </th>
-                                            @endforeach
-                                        </tr>
-                                    </thead>
-                                    <tbody
-                                        class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                                        <tr>
-                                            @foreach ($criteriaItems as $critIndex => $crit)
-                                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
-                                                    {{ number_format(data_get($idealPositive, $critIndex, 0), 4) }}
-                                                </td>
-                                            @endforeach
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div
-                            class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                            <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Solusi Ideal
-                                    Negatif</h2>
-                                <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                    Nilai terburuk untuk setiap kriteria sebagai pembanding.
-                                </p>
-                            </div>
-
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                                    <thead class="bg-slate-50 dark:bg-slate-800/70">
-                                        <tr>
-                                            @foreach ($criteriaItems as $crit)
-                                                <th
-                                                    class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
-                                                    {{ $crit['code'] }}
-                                                </th>
-                                            @endforeach
-                                        </tr>
-                                    </thead>
-                                    <tbody
-                                        class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                                        <tr>
-                                            @foreach ($criteriaItems as $critIndex => $crit)
-                                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
-                                                    {{ number_format(data_get($idealNegative, $critIndex, 0), 4) }}
-                                                </td>
-                                            @endforeach
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Jarak ke Solusi
-                                Ideal</h2>
-                            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                Bagian ini menampilkan nilai <span class="font-medium">D+</span>,
-                                <span class="font-medium">D-</span>, dan nilai preferensi untuk setiap alternatif.
-                            </p>
-                        </div>
-
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                                <thead class="bg-slate-50 dark:bg-slate-800/70">
-                                    <tr>
+                                            class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
+                                            Rank</th>
                                         <th
                                             class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
                                             Alternatif</th>
@@ -466,14 +389,16 @@
                                             D-</th>
                                         <th
                                             class="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">
-                                            V</th>
+                                            Score</th>
                                     </tr>
                                 </thead>
                                 <tbody
                                     class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                                    @foreach ($rankedResults as $r)
+                                    @foreach ($rankedResults as $index => $r)
                                         <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
                                             <td class="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                                                {{ $index + 1 }}</td>
+                                            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
                                                 {{ $r['name'] }}</td>
                                             <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
                                                 {{ number_format($r['d_plus'], 4) }}</td>
@@ -489,6 +414,22 @@
                         </div>
                     </div>
                 </div>
+
+                @if ($aiConclusion)
+                    <div
+                        class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+
+                        <h3 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
+                            Kesimpulan AI
+                        </h3>
+
+                        <p class="prose prose-sm mt-3 max-w-none dark:prose-invert">
+                            {!! \Illuminate\Support\Str::markdown($aiConclusion) !!}
+                        </p>
+
+                    </div>
+                @endif
+
             @endif
         @else
             <div
@@ -496,7 +437,7 @@
                 <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Pilih perhitungan terlebih
                     dahulu</h2>
                 <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    Setelah memilih perhitungan, tabel input TOPSIS dan seluruh detail hasil akan muncul di bawah.
+                    Setelah memilih perhitungan, tabel input hybrid dan seluruh detail hasil SAW serta TOPSIS akan muncul di bawah.
                 </p>
             </div>
         @endif

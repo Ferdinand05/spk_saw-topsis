@@ -12,6 +12,7 @@ use App\Models\Score;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use UnitEnum;
 
@@ -20,8 +21,8 @@ class Topsis extends Page
     protected string $view = 'filament.pages.topsis';
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Calculator;
     protected static ?int $navigationSort = 4;
-    protected static string | UnitEnum | null $navigationGroup = 'Perhitungan';
-    protected static ?string $navigationLabel = 'TOPSIS';
+    protected static string|UnitEnum|null $navigationGroup = 'Perhitungan';
+    protected static ?string $navigationLabel = 'Hybrid SAW + TOPSIS';
 
     public $calculation_id = null;
     public $calculations = [];
@@ -29,6 +30,10 @@ class Topsis extends Page
     public $criteria = [];
     public $alternatives = [];
     public $scores = [];
+
+    public $sawNormalizedMatrix = [];
+    public $sawWeightedMatrix = [];
+    public $sawResults = [];
 
     public $normalizedMatrix = [];
     public $weightedMatrix = [];
@@ -41,30 +46,36 @@ class Topsis extends Page
     public $aiConclusion = null;
     public $disabledHitung = true;
     public $disabledAi = true;
+
     public function mount(): void
     {
         $this->calculations = Calculation::orderBy('name')->get()->toArray();
     }
 
-    public function updatedCalculationId()
+    public function updatedCalculationId(): void
     {
         $this->loadData();
     }
 
-    public function loadData()
+    public function loadData(): void
     {
-        if (!$this->calculation_id) {
+        if (! $this->calculation_id) {
             $this->criteria = [];
             $this->alternatives = [];
             $this->scores = [];
             $this->results = [];
+            $this->sawResults = [];
             $this->normalizedMatrix = [];
             $this->weightedMatrix = [];
             $this->idealPositive = [];
             $this->idealNegative = [];
             $this->distancePositive = [];
             $this->distanceNegative = [];
+            $this->sawNormalizedMatrix = [];
+            $this->sawWeightedMatrix = [];
             $this->aiConclusion = null;
+            $this->disabledHitung = true;
+            $this->disabledAi = true;
 
             return;
         }
@@ -72,150 +83,207 @@ class Topsis extends Page
         $this->criteria = Criteria::where('calculation_id', $this->calculation_id)->get()->toArray();
         $this->alternatives = Alternative::where('calculation_id', $this->calculation_id)->get()->toArray();
 
-        // load scores
         $scores = Score::where('calculation_id', $this->calculation_id)->get();
-
         $matrix = [];
 
-        foreach ($scores as $s) {
-            $matrix[$s->alternative_id][$s->criteria_id] = $s->value;
+        foreach ($scores as $score) {
+            $matrix[$score->alternative_id][$score->criteria_id] = $score->value;
         }
 
         $this->scores = $matrix;
         $this->results = [];
+        $this->sawResults = [];
         $this->normalizedMatrix = [];
         $this->weightedMatrix = [];
         $this->idealPositive = [];
         $this->idealNegative = [];
         $this->distancePositive = [];
         $this->distanceNegative = [];
+        $this->sawNormalizedMatrix = [];
+        $this->sawWeightedMatrix = [];
         $this->aiConclusion = null;
+        $this->disabledHitung = true;
+        $this->disabledAi = true;
     }
 
-    public function hitung()
+    private function normalizedWeights(Collection $criteria): array
     {
-        $criteria = collect($this->criteria);
-        $alternatives = collect($this->alternatives);
-
-        $nCriteria = $criteria->count();
-        $nAlt = $alternatives->count();
-
-        // 🔹 1. Normalisasi
-        $norm = [];
-
-        for ($j = 0; $j < $nCriteria; $j++) {
-            $sum = 0;
-
-            for ($i = 0; $i < $nAlt; $i++) {
-                $value = $this->getScore($i, $j);
-                $sum += pow($value, 2);
-            }
-
-            $sqrt = sqrt($sum);
-
-            for ($i = 0; $i < $nAlt; $i++) {
-                $value = $this->getScore($i, $j);
-                $norm[$i][$j] = $value / ($sqrt ?: 1);
-            }
-        }
-
-        // 🔹 2. Normalisasi bobot
         $totalWeight = $criteria->sum('weight');
 
-        $weights = $criteria->map(fn($c) => $c['weight'] / ($totalWeight ?: 1))->values();
+        return $criteria
+            ->map(fn(array $criterion) => $criterion['weight'] / ($totalWeight ?: 1))
+            ->values()
+            ->all();
+    }
 
-        // 🔹 3. Matriks terbobot
-        $y = [];
+    private function calculateSaw(Collection $criteria, Collection $alternatives): array
+    {
+        $nCriteria = $criteria->count();
+        $nAlt = $alternatives->count();
+        $weights = $this->normalizedWeights($criteria);
 
-        for ($i = 0; $i < $nAlt; $i++) {
-            for ($j = 0; $j < $nCriteria; $j++) {
-                $y[$i][$j] = $norm[$i][$j] * $weights[$j];
-            }
-        }
-
-        // 🔹 4. Solusi ideal
-        $idealPos = [];
-        $idealNeg = [];
+        $normalized = [];
+        $weighted = [];
 
         for ($j = 0; $j < $nCriteria; $j++) {
-            $col = array_column($y, $j);
+            $columnValues = [];
 
-            if ($criteria[$j]['type'] === 'benefit') {
-                $idealPos[$j] = max($col);
-                $idealNeg[$j] = min($col);
-            } else {
-                $idealPos[$j] = min($col);
-                $idealNeg[$j] = max($col);
+            for ($i = 0; $i < $nAlt; $i++) {
+                $columnValues[] = $this->getScore($i, $j);
+            }
+
+            $max = ! empty($columnValues) ? max($columnValues) : 0;
+            $min = ! empty($columnValues) ? min($columnValues) : 0;
+
+            for ($i = 0; $i < $nAlt; $i++) {
+                $value = $this->getScore($i, $j);
+
+                if ($criteria[$j]['type'] === 'benefit') {
+                    $normalized[$i][$j] = $max ? $value / $max : 0;
+                } else {
+                    $normalized[$i][$j] = $value > 0 ? $min / $value : 0;
+                }
+
+                $weighted[$i][$j] = $normalized[$i][$j] * ($weights[$j] ?? 0);
             }
         }
 
-        // 🔹 5. Jarak
-        $dPos = [];
-        $dNeg = [];
-
-        for ($i = 0; $i < $nAlt; $i++) {
-            $sumPos = 0;
-            $sumNeg = 0;
-
-            for ($j = 0; $j < $nCriteria; $j++) {
-                $sumPos += pow($y[$i][$j] - $idealPos[$j], 2);
-                $sumNeg += pow($y[$i][$j] - $idealNeg[$j], 2);
-            }
-
-            $dPos[$i] = sqrt($sumPos);
-            $dNeg[$i] = sqrt($sumNeg);
-        }
-
-        // 🔹 6. Nilai preferensi
         $results = [];
 
-        foreach ($alternatives as $i => $alt) {
-            $denominator = ($dPos[$i] + $dNeg[$i]) ?: 1;
-            $score = $dNeg[$i] / $denominator;
+        foreach ($alternatives as $i => $alternative) {
+            $score = 0;
+
+            for ($j = 0; $j < $nCriteria; $j++) {
+                $score += $weighted[$i][$j] ?? 0;
+            }
 
             $results[] = [
-                'id' => $alt['id'],
-                'name' => $alt['name'],
-                'd_plus' => $dPos[$i],
-                'd_minus' => $dNeg[$i],
+                'id' => $alternative['id'],
+                'name' => $alternative['name'],
                 'score' => $score,
             ];
         }
 
-        usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
+        usort($results, fn(array $a, array $b) => $b['score'] <=> $a['score']);
 
-        // 🔹 Simpan hasil
-        $this->normalizedMatrix = $norm;
-        $this->weightedMatrix = $y;
-        $this->idealPositive = $idealPos;
-        $this->idealNegative = $idealNeg;
-        $this->distancePositive = $dPos;
-        $this->distanceNegative = $dNeg;
+        return [
+            'normalized' => $normalized,
+            'weighted' => $weighted,
+            'results' => $results,
+        ];
+    }
+
+    private function calculateTopsisHybrid(Collection $criteria, Collection $alternatives, array $sawWeightedMatrix): array
+    {
+        $nCriteria = $criteria->count();
+        $nAlt = $alternatives->count();
+
+        // Dalam Hybrid, kita langsung gunakan matriks terbobot dari SAW
+        $weighted = $sawWeightedMatrix;
+
+        $idealPositive = [];
+        $idealNegative = [];
+
+        for ($j = 0; $j < $nCriteria; $j++) {
+            $column = array_column($weighted, $j);
+
+            // KARENA SUDAH DI-NORMALISASI SAW:
+            // Semua kriteria (termasuk Cost) sudah searah (semakin besar semakin baik)
+            // Jadi A+ selalu MAX dan A- selalu MIN
+            $idealPositive[$j] = max($column);
+            $idealNegative[$j] = min($column);
+        }
+
+        $distancePositive = [];
+        $distanceNegative = [];
+
+        for ($i = 0; $i < $nAlt; $i++) {
+            $sumPositive = 0;
+            $sumNegative = 0;
+
+            for ($j = 0; $j < $nCriteria; $j++) {
+                $sumPositive += pow(($weighted[$i][$j] ?? 0) - $idealPositive[$j], 2);
+                $sumNegative += pow(($weighted[$i][$j] ?? 0) - $idealNegative[$j], 2);
+            }
+
+            $distancePositive[$i] = sqrt($sumPositive);
+            $distanceNegative[$i] = sqrt($sumNegative);
+        }
+
+        $results = [];
+        foreach ($alternatives as $i => $alternative) {
+            $denominator = ($distancePositive[$i] + $distanceNegative[$i]) ?: 1;
+            $score = $distanceNegative[$i] / $denominator;
+
+            $results[] = [
+                'id' => $alternative['id'],
+                'name' => $alternative['name'],
+                'd_plus' => $distancePositive[$i],
+                'd_minus' => $distanceNegative[$i],
+                'score' => $score,
+            ];
+        }
+
+        usort($results, fn(array $a, array $b) => $b['score'] <=> $a['score']);
+
+        return [
+            'weighted' => $weighted,
+            'ideal_positive' => $idealPositive,
+            'ideal_negative' => $idealNegative,
+            'distance_positive' => $distancePositive,
+            'distance_negative' => $distanceNegative,
+            'results' => $results,
+        ];
+    }
+
+    public function hitung(): void
+    {
+        $criteria = collect($this->criteria)->values();
+        $alternatives = collect($this->alternatives)->values();
+
+        if ($criteria->isEmpty() || $alternatives->isEmpty()) {
+            return;
+        }
+
+        // 1. Jalankan SAW untuk mendapatkan Normalisasi dan Terbobot
+        $saw = $this->calculateSaw($criteria, $alternatives);
+
+        // 2. Jalankan TOPSIS menggunakan MATRIKS TERBOBOT dari SAW
+        $topsis = $this->calculateTopsisHybrid($criteria, $alternatives, $saw['weighted']);
+
+        // Simpan ke state untuk ditampilkan di UI
+        $this->sawNormalizedMatrix = $saw['normalized'];
+        $this->sawWeightedMatrix = $saw['weighted'];
+        $this->sawResults = $saw['results'];
+
+        $this->weightedMatrix = $topsis['weighted'];
+        $this->idealPositive = $topsis['ideal_positive'];
+        $this->idealNegative = $topsis['ideal_negative'];
+        $this->distancePositive = $topsis['distance_positive'];
+        $this->distanceNegative = $topsis['distance_negative'];
+        $this->results = $topsis['results'];
         $this->aiConclusion = null;
 
-        DB::transaction(function () use ($results) {
+        DB::transaction(function () {
             Result::where('calculation_id', $this->calculation_id)->delete();
 
-            foreach ($results as $rank => $r) {
+            foreach ($this->results as $rank => $result) {
                 Result::create([
                     'calculation_id' => $this->calculation_id,
-                    'alternative_id' => $r['id'],
-                    'score' => $r['score'],
+                    'alternative_id' => $result['id'],
+                    'score' => $result['score'],
                     'rank' => $rank + 1,
                 ]);
             }
         });
 
-        $this->results = $results;
-
-
         $this->disabledAi = false;
     }
 
-    public function generateConclusion()
+    public function generateConclusion(): void
     {
-        if (empty($this->results)) {
-            $this->aiConclusion = 'Silakan jalankan perhitungan TOPSIS terlebih dahulu sebelum meminta kesimpulan AI.';
+        if (empty($this->results) || empty($this->sawResults)) {
+            $this->aiConclusion = 'Silakan jalankan perhitungan hybrid SAW + TOPSIS terlebih dahulu sebelum meminta kesimpulan AI.';
 
             return;
         }
@@ -223,23 +291,32 @@ class Topsis extends Page
         $calculation = collect($this->calculations)
             ->firstWhere('id', $this->calculation_id) ?? [];
 
-        $criteria = collect($this->criteria)->map(function (array $crit) {
+        $criteria = collect($this->criteria)->map(function (array $criterion) {
             return [
-                'id' => $crit['id'],
-                'code' => $crit['code'],
-                'name' => $crit['name'],
-                'weight' => $crit['weight'],
-                'type' => $crit['type'],
+                'id' => $criterion['id'],
+                'code' => $criterion['code'],
+                'name' => $criterion['name'],
+                'weight' => $criterion['weight'],
+                'type' => $criterion['type'],
             ];
         })->values()->all();
 
-        $alternatives = collect($this->alternatives)->map(function (array $alt) {
+        $alternatives = collect($this->alternatives)->map(function (array $alternative) {
             return [
-                'id' => $alt['id'],
-                'code' => $alt['code'],
-                'name' => $alt['name'],
+                'id' => $alternative['id'],
+                'code' => $alternative['code'],
+                'name' => $alternative['name'],
             ];
         })->values()->all();
+
+        $sawResults = collect($this->sawResults)->values()->map(function (array $result, int $index) {
+            return [
+                'rank' => $index + 1,
+                'id' => $result['id'],
+                'name' => $result['name'],
+                'score' => $result['score'],
+            ];
+        })->all();
 
         $results = collect($this->results)->values()->map(function (array $result, int $index) {
             return [
@@ -253,6 +330,8 @@ class Topsis extends Page
         })->all();
 
         $matrices = [
+            'saw_normalized' => $this->sawNormalizedMatrix,
+            'saw_weighted' => $this->sawWeightedMatrix,
             'normalized' => $this->normalizedMatrix,
             'weighted' => $this->weightedMatrix,
             'ideal_positive' => $this->idealPositive,
@@ -267,15 +346,16 @@ class Topsis extends Page
                     calculation: $calculation,
                     criteria: $criteria,
                     alternatives: $alternatives,
+                    sawResults: $sawResults,
                     results: $results,
                     matrices: $matrices,
                 );
 
             $this->aiConclusion = (string) $response;
-        } catch (\Throwable $e) {
-            report($e);
+        } catch (\Throwable $exception) {
+            report($exception);
 
-            $this->aiConclusion = 'Gagal menghasilkan kesimpulan AI. Silakan cek kembali konfigurasi Gemini API key dan model yang dipakai.';
+            $this->aiConclusion = $exception->getMessage();
         }
     }
 
@@ -287,22 +367,21 @@ class Topsis extends Page
         return $this->scores[$altId][$critId] ?? 0;
     }
 
-    public function saveScores()
+    public function saveScores(): void
     {
         DB::transaction(function () {
-            foreach ($this->alternatives as $alt) {
-                foreach ($this->criteria as $crit) {
-
-                    $value = $this->scores[$alt['id']][$crit['id']] ?? 0;
+            foreach ($this->alternatives as $alternative) {
+                foreach ($this->criteria as $criterion) {
+                    $value = $this->scores[$alternative['id']][$criterion['id']] ?? 0;
 
                     Score::updateOrCreate(
                         [
                             'calculation_id' => $this->calculation_id,
-                            'alternative_id' => $alt['id'],
-                            'criteria_id' => $crit['id'],
+                            'alternative_id' => $alternative['id'],
+                            'criteria_id' => $criterion['id'],
                         ],
                         [
-                            'value' => $value
+                            'value' => $value,
                         ]
                     );
                 }
@@ -311,8 +390,6 @@ class Topsis extends Page
 
         $this->disabledHitung = false;
     }
-
-
 
     public function getWidgetData(): array
     {
@@ -325,16 +402,16 @@ class Topsis extends Page
 
     protected function getFooterWidgets(): array
     {
-        if (!$this->calculation_id) {
+        if (! $this->calculation_id) {
             return [];
         }
 
         return [
             TopsisRankChart::make([
                 'stats' => [
-                    'calculation_id' => $this->calculation_id
-                ]
-            ])
+                    'calculation_id' => $this->calculation_id,
+                ],
+            ]),
         ];
     }
 }

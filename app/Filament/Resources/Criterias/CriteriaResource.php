@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\SelectColumn;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -58,9 +59,7 @@ class CriteriaResource extends Resource
                 TextInput::make('weight')
                     ->required()
                     ->numeric()
-                    ->minValue(1)
-                    ->maxValue(5)
-                    ->helperText("Gunakan skala kepentingan 1 - 5")
+
                     ->label("Bobot"),
                 Select::make('type')
                     ->options([
@@ -89,7 +88,8 @@ class CriteriaResource extends Resource
                 TextColumn::make("name")
                     ->label("Name"),
                 TextColumn::make("weight")
-                    ->label("Bobot"),
+                    ->label("Bobot")
+                    ->summarize(Sum::make()),
                 SelectColumn::make('type')
                     ->label("Tipe")
                     ->options([

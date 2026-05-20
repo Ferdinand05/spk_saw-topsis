@@ -51,8 +51,8 @@ class CalculationResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label("Nama Perhitungan"),
-                TextColumn::make('user_id')
-                    ->label('user.name')
+                TextColumn::make('user.name')
+                    ->label('Dibuat Oleh')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label("Tgl. Dibuat")

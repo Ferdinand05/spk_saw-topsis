@@ -81,7 +81,7 @@ class CalculationResource extends Resource
                             function () use ($pdf) {
                                 echo $pdf->output();
                             },
-                            'topsis-' . Str::slug($calculation->name ?: 'calculation') . '.pdf'
+                            'hybrid-saw-topsis-' . Str::slug($calculation->name ?: 'calculation') . '.pdf'
                         );
                     })
                     ->disabled(function (Calculation $calculation) {

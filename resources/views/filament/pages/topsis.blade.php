@@ -82,6 +82,37 @@
                 </div>
             </div>
 
+            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            Panduan singkat
+                        </span>
+
+                        <x-filament::icon-button
+                            icon="heroicon-m-question-mark-circle"
+                            label="Panduan penilaian"
+                            tooltip="Skala 1-5: 1 sangat rendah, 2 rendah, 3 cukup, 4 baik, 5 sangat baik. Benefit = semakin tinggi semakin baik. Cost = semakin rendah semakin baik."
+                        />
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ([1 => 'Sangat rendah', 2 => 'Rendah', 3 => 'Cukup', 4 => 'Baik', 5 => 'Sangat baik'] as $value => $label)
+                            <span
+                                title="{{ $value }} = {{ $label }}"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                                {{ $value }}
+                            </span>
+                        @endforeach
+                    </div>
+
+                    <div class="text-sm text-slate-600 dark:text-slate-300">
+                        <span class="font-medium text-emerald-700 dark:text-emerald-300">Benefit</span> tinggi lebih baik,
+                        <span class="font-medium text-amber-700 dark:text-amber-300">Cost</span> rendah lebih baik.
+                    </div>
+                </div>
+            </div>
+
             <div class="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                     <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Matriks Nilai Alternatif</h2>

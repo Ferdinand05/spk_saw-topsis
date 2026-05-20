@@ -52,7 +52,7 @@ class CalculationResource extends Resource
                 TextColumn::make('name')
                     ->label("Nama Perhitungan"),
                 TextColumn::make('user_id')
-                    ->label('users.name')
+                    ->label('user.name')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label("Tgl. Dibuat")

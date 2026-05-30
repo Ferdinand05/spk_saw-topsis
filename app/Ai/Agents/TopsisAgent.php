@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use Laravel\Ai\Ai;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -16,7 +17,6 @@ use Laravel\Ai\Responses\AgentResponse;
 use Stringable;
 
 
-#[Provider(Lab::Gemini)]
 #[Temperature(0.3)]
 #[Timeout(120)]
 class TopsisAgent implements Agent, Conversational, HasTools
@@ -98,7 +98,7 @@ class TopsisAgent implements Agent, Conversational, HasTools
     ): AgentResponse {
         return $this->prompt(
             $this->buildConclusionPrompt($calculation, $criteria, $alternatives, $results, $matrices, $sawResults),
-            provider: Lab::Gemini,
+            provider: [Lab::Gemini, Lab::Groq],
         );
     }
 

@@ -58,6 +58,8 @@ class UserResource extends Resource
                     ->label("Name"),
                 TextColumn::make("email")
                     ->label("Email"),
+                TextColumn::make("role")
+                    ->label("Peran"),
                 TextColumn::make("created_at")
                     ->label("Tgl. Bergabung")
 

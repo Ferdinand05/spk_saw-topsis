@@ -17,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use UnitEnum;
 
@@ -84,8 +85,12 @@ class CalculationResource extends Resource
                             'hybrid-saw-topsis-' . Str::slug($calculation->name ?: 'calculation') . '.pdf'
                         );
                     })
+
                     ->disabled(function (Calculation $calculation) {
                         return $calculation->results()->count() === 0;
+                    })
+                    ->visible(function () {
+                        return Auth::user()->isOwner();
                     }),
                 EditAction::make(),
                 DeleteAction::make(),

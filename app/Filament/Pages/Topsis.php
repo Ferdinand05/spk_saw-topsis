@@ -23,6 +23,7 @@ class Topsis extends Page
     protected static ?int $navigationSort = 4;
     protected static string|UnitEnum|null $navigationGroup = 'Perhitungan';
     protected static ?string $navigationLabel = 'Hybrid SAW + TOPSIS';
+    protected static ?string $title = "Halaman Perhitungan SPK";
 
     public $calculation_id = null;
     public $calculations = [];

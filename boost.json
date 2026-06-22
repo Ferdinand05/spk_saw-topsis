@@ -1,6 +1,6 @@
 {
     "agents": [
-        "codex"
+        "opencode"
     ],
     "cloud": false,
     "mcp": true,

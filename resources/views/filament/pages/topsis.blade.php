@@ -82,24 +82,21 @@
                 </div>
             </div>
 
-            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div
+                class="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="flex items-center gap-2">
                         <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
                             Panduan singkat
                         </span>
 
-                        <x-filament::icon-button
-                            icon="heroicon-m-question-mark-circle"
-                            label="Panduan penilaian"
-                            tooltip="Skala 1-5: 1 sangat rendah, 2 rendah, 3 cukup, 4 baik, 5 sangat baik. Benefit = semakin tinggi semakin baik. Cost = semakin rendah semakin baik."
-                        />
+                        <x-filament::icon-button icon="heroicon-m-question-mark-circle" label="Panduan penilaian"
+                            tooltip="Skala 1-5: 1 sangat rendah, 2 rendah, 3 cukup, 4 baik, 5 sangat baik. Benefit = semakin tinggi semakin baik. Cost = semakin rendah semakin baik." />
                     </div>
 
                     <div class="flex flex-wrap gap-2">
                         @foreach ([1 => 'Sangat rendah', 2 => 'Rendah', 3 => 'Cukup', 4 => 'Baik', 5 => 'Sangat baik'] as $value => $label)
-                            <span
-                                title="{{ $value }} = {{ $label }}"
+                            <span title="{{ $value }} = {{ $label }}"
                                 class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                                 {{ $value }}
                             </span>
@@ -107,7 +104,8 @@
                     </div>
 
                     <div class="text-sm text-slate-600 dark:text-slate-300">
-                        <span class="font-medium text-emerald-700 dark:text-emerald-300">Benefit</span> tinggi lebih baik,
+                        <span class="font-medium text-emerald-700 dark:text-emerald-300">Benefit</span> tinggi lebih
+                        baik,
                         <span class="font-medium text-amber-700 dark:text-amber-300">Cost</span> rendah lebih baik.
                     </div>
                 </div>
@@ -177,19 +175,32 @@
                 </button>
 
                 <button wire:click="hitung" wire:loading.attr="disabled" wire:bind:disabled="disabledHitung"
+                    wire:target="hitung"
                     class="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
-                    Hitung Hybrid
+
+                    <span wire:loading.remove wire:target="hitung">
+                        Hitung Hybrid SAW-TOPSIS
+                    </span>
+
+                    <span wire:loading wire:target="hitung">
+                        Menghitung..
+                    </span>
+
                 </button>
 
                 @if (!$aiConclusion)
                     <button wire:click="generateConclusion" wire:loading.attr="disabled"
-                        wire:bind:disabled="disabledAi "
+                        wire:target="generateConclusion" wire:bind:disabled="disabledAi "
                         class="inline-flex items-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 shadow-sm transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950">
-                        Analisis AI
+                        <span wire:loading.remove wire:target="generateConclusion">
+                            Analisis AI
+                        </span>
+                        <span wire:loading wire:target="generateConclusion">
+                            Menganalisis...
+                        </span>
                     </button>
                 @endif
             </div>
-
             @if ($results)
                 @php
                     $rankedResults = collect($results)->values();
@@ -268,7 +279,8 @@
                         <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Ringkasan Hasil</h3>
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
                             Nilai preferensi dihitung dengan rumus:
-                            <span class="font-medium text-slate-800 dark:text-slate-200">V<sub>i</sub> = D<sub>-</sub> /
+                            <span class="font-medium text-slate-800 dark:text-slate-200">V<sub>i</sub> = D<sub>-</sub>
+                                /
                                 (D<sub>+</sub> + D<sub>-</sub>)</span>.
                         </p>
 
@@ -328,7 +340,8 @@
                                         @endforeach
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                                <tbody
+                                    class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                                     @foreach ($alternativeItems as $altIndex => $alt)
                                         <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
                                             <td
@@ -373,7 +386,8 @@
                                         @endforeach
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                                <tbody
+                                    class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                                     @foreach ($alternativeItems as $altIndex => $alt)
                                         <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
                                             <td
@@ -451,7 +465,7 @@
                         class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/30">
 
                         <h3 class="text-base font-semibold text-emerald-900 dark:text-emerald-100">
-                            Kesimpulan AI
+                            Hasilil Analisis & Kesimpulan AI
                         </h3>
 
                         <p class="prose prose-sm mt-3 max-w-none dark:prose-invert">
@@ -468,7 +482,8 @@
                 <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Pilih perhitungan terlebih
                     dahulu</h2>
                 <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    Setelah memilih perhitungan, tabel input hybrid dan seluruh detail hasil SAW serta TOPSIS akan muncul di bawah.
+                    Setelah memilih perhitungan, tabel input hybrid dan seluruh detail hasil SAW serta TOPSIS akan
+                    muncul di bawah.
                 </p>
             </div>
         @endif

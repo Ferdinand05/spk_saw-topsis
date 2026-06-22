@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Laporan Hasil TOPSIS</title>
+    <title>Laporan Hasil Hybrid SAW + TOPSIS</title>
     <style>
         @page {
             margin: 24px 28px;
@@ -159,56 +159,58 @@
             $matrix[$score->alternative_id][$score->criteria_id] = (float) $score->value;
         }
 
+        $sawNormalizedMatrix = [];
+        $sawWeightedMatrix = [];
+        $weightedMatrix = [];
+        $idealPositive = [];
+        $idealNegative = [];
+        $distancePositive = [];
+        $distanceNegative = [];
         $rankedResults = collect();
 
         if ($criteria->count() && $alternatives->count() && $scores->count()) {
-            $getScore = function (int $altIndex, int $critIndex) use ($alternatives, $criteria, $matrix) {
-                $altId = $alternatives[$altIndex]->id;
-                $critId = $criteria[$critIndex]->id;
-
-                return (float) data_get($matrix, $altId . '.' . $critId, 0);
-            };
-
             $nCriteria = $criteria->count();
             $nAlt = $alternatives->count();
-            $norm = [];
-
-            for ($j = 0; $j < $nCriteria; $j++) {
-                $sum = 0;
-                for ($i = 0; $i < $nAlt; $i++) {
-                    $sum += pow($getScore($i, $j), 2);
-                }
-
-                $sqrt = sqrt($sum);
-
-                for ($i = 0; $i < $nAlt; $i++) {
-                    $norm[$i][$j] = $getScore($i, $j) / ($sqrt ?: 1);
-                }
-            }
-
             $totalWeight = $criteria->sum('weight');
-            $weights = $criteria->map(fn ($criterion) => $criterion->weight / ($totalWeight ?: 1))->values();
+            $weights = $criteria
+                ->map(fn ($criterion) => $criterion->weight / ($totalWeight ?: 1))
+                ->values()
+                ->all();
 
-            $weighted = [];
-            for ($i = 0; $i < $nAlt; $i++) {
-                for ($j = 0; $j < $nCriteria; $j++) {
-                    $weighted[$i][$j] = $norm[$i][$j] * $weights[$j];
+            for ($j = 0; $j < $nCriteria; $j++) {
+                $columnValues = [];
+
+                for ($i = 0; $i < $nAlt; $i++) {
+                    $altId = $alternatives[$i]->id;
+                    $critId = $criteria[$j]->id;
+
+                    $columnValues[] = (float) data_get($matrix, $altId . '.' . $critId, 0);
+                }
+
+                $max = ! empty($columnValues) ? max($columnValues) : 0;
+                $min = ! empty($columnValues) ? min($columnValues) : 0;
+
+                for ($i = 0; $i < $nAlt; $i++) {
+                    $altId = $alternatives[$i]->id;
+                    $critId = $criteria[$j]->id;
+                    $value = (float) data_get($matrix, $altId . '.' . $critId, 0);
+
+                    if (($criteria[$j]->type ?? 'benefit') === 'benefit') {
+                        $sawNormalizedMatrix[$i][$j] = $max ? $value / $max : 0;
+                    } else {
+                        $sawNormalizedMatrix[$i][$j] = $value > 0 ? $min / $value : 0;
+                    }
+
+                    $sawWeightedMatrix[$i][$j] = $sawNormalizedMatrix[$i][$j] * ($weights[$j] ?? 0);
                 }
             }
 
-            $idealPos = [];
-            $idealNeg = [];
-            for ($j = 0; $j < $nCriteria; $j++) {
-                $column = array_column($weighted, $j);
-                $type = $criteria[$j]->type ?? 'benefit';
+            $weightedMatrix = $sawWeightedMatrix;
 
-                if ($type === 'benefit') {
-                    $idealPos[$j] = max($column);
-                    $idealNeg[$j] = min($column);
-                } else {
-                    $idealPos[$j] = min($column);
-                    $idealNeg[$j] = max($column);
-                }
+            for ($j = 0; $j < $nCriteria; $j++) {
+                $column = array_column($weightedMatrix, $j);
+                $idealPositive[$j] = ! empty($column) ? max($column) : 0;
+                $idealNegative[$j] = ! empty($column) ? min($column) : 0;
             }
 
             $results = [];
@@ -217,20 +219,20 @@
                 $sumNeg = 0;
 
                 for ($j = 0; $j < $nCriteria; $j++) {
-                    $sumPos += pow($weighted[$i][$j] - $idealPos[$j], 2);
-                    $sumNeg += pow($weighted[$i][$j] - $idealNeg[$j], 2);
+                    $sumPos += pow(($weightedMatrix[$i][$j] ?? 0) - $idealPositive[$j], 2);
+                    $sumNeg += pow(($weightedMatrix[$i][$j] ?? 0) - $idealNegative[$j], 2);
                 }
 
-                $dPos = sqrt($sumPos);
-                $dNeg = sqrt($sumNeg);
-                $scoreValue = $dNeg / (($dPos + $dNeg) ?: 1);
+                $distancePositive[$i] = sqrt($sumPos);
+                $distanceNegative[$i] = sqrt($sumNeg);
+                $scoreValue = $distanceNegative[$i] / (($distancePositive[$i] + $distanceNegative[$i]) ?: 1);
 
                 $results[] = [
                     'id' => $alternative->id,
                     'code' => $alternative->code,
                     'name' => $alternative->name,
-                    'd_plus' => $dPos,
-                    'd_minus' => $dNeg,
+                    'd_plus' => $distancePositive[$i],
+                    'd_minus' => $distanceNegative[$i],
                     'score' => $scoreValue,
                 ];
             }
@@ -249,7 +251,7 @@
 
     <div class="header">
         <div class="brand">Sistem Pendukung Keputusan</div>
-        <h1 class="title">Laporan Hasil TOPSIS</h1>
+        <h1 class="title">Laporan Hasil Hybrid SAW + TOPSIS</h1>
         <p class="meta">
             Perhitungan: <strong>{{ $calculation->name }}</strong> | Dicetak: {{ $printedAt->format('d M Y H:i') }}
         </p>
@@ -269,12 +271,12 @@
                 </div>
             </div>
         @else
-            <p class="note">Belum ada hasil TOPSIS yang bisa dicetak untuk perhitungan ini.</p>
+            <p class="note">Belum ada hasil Hybrid SAW + TOPSIS yang bisa dicetak untuk perhitungan ini.</p>
         @endif
     </div>
 
     <div class="section">
-        <h2 class="section-title">Ranking Alternatif</h2>
+        <h2 class="section-title">Ranking Alternatif Hybrid</h2>
 
         @if ($rankedResults->count())
             <table class="report">
@@ -339,7 +341,7 @@
     </div>
 
     <div class="footer">
-        Dokumen ini digenerate otomatis dari sistem TOPSIS dan siap dicetak.
+        Dokumen ini digenerate otomatis dari sistem Hybrid SAW + TOPSIS dan siap dicetak.
     </div>
 </body>
 

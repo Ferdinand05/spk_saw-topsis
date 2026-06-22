@@ -17,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use UnitEnum;
 
@@ -51,6 +52,9 @@ class CalculationResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label("Nama Perhitungan"),
+                TextColumn::make('user.name')
+                    ->label('Dibuat Oleh')
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->label("Tgl. Dibuat")
                     ->sortable()
@@ -78,11 +82,15 @@ class CalculationResource extends Resource
                             function () use ($pdf) {
                                 echo $pdf->output();
                             },
-                            'topsis-' . Str::slug($calculation->name ?: 'calculation') . '.pdf'
+                            'hybrid-saw-topsis-' . Str::slug($calculation->name ?: 'calculation') . '.pdf'
                         );
                     })
+
                     ->disabled(function (Calculation $calculation) {
                         return $calculation->results()->count() === 0;
+                    })
+                    ->visible(function () {
+                        return Auth::user()->isOwner();
                     }),
                 EditAction::make(),
                 DeleteAction::make(),

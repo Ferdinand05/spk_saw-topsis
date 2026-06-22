@@ -9,6 +9,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -36,6 +37,11 @@ class UserResource extends Resource
                 TextInput::make("email")
                     ->required()
                     ->label("Email"),
+                Select::make('role')
+                    ->label('Role')
+                    ->options(User::roleOptions())
+                    ->required()
+                    ->default(User::ROLE_STAFF),
                 TextInput::make("password")
                     ->password()
                     ->required()
@@ -52,6 +58,8 @@ class UserResource extends Resource
                     ->label("Name"),
                 TextColumn::make("email")
                     ->label("Email"),
+                TextColumn::make("role")
+                    ->label("Peran"),
                 TextColumn::make("created_at")
                     ->label("Tgl. Bergabung")
 

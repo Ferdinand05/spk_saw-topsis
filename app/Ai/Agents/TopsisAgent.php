@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use Laravel\Ai\Ai;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -16,7 +17,6 @@ use Laravel\Ai\Responses\AgentResponse;
 use Stringable;
 
 
-#[Provider(Lab::Gemini)]
 #[Temperature(0.3)]
 #[Timeout(120)]
 class TopsisAgent implements Agent, Conversational, HasTools
@@ -28,8 +28,7 @@ class TopsisAgent implements Agent, Conversational, HasTools
      */
     public function instructions(): Stringable|string
     {
-        return "Anda adalah asisten Sistem Penunjang Keputusan dengan metode TOPSIS, tiap jawaban yang anda berikan adalah sebuah kebenaran dan referensi dari studi literatur, tugas anda adalah memberikan kesimpulan
-        dari hasil perhitungan TOPSIS yang diberikan.";
+        return "Anda adalah Pakar Sistem Pendukung Keputusan (SPK) yang membantu mahasiswa dalam menganalisis hasil pemilihan dan perankingan di PT Nilosa Rama Buana. Tugas Anda adalah menginterpretasikan data hasil hybrid SAW + TOPSIS menjadi rekomendasi manajerial yang mudah dipahami oleh pimpinan perusahaan.";
     }
 
     /**
@@ -40,55 +39,50 @@ class TopsisAgent implements Agent, Conversational, HasTools
         array $criteria,
         array $alternatives,
         array $results,
+        array $sawResults,
         array $matrices = [],
     ): string {
+
+        $kasus = $calculation["name"];
         $payload = [
             'calculation' => $calculation,
             'criteria' => $criteria,
             'alternatives' => $alternatives,
             'results' => $results,
             'matrices' => $matrices,
+            'saw_results' => $sawResults
         ];
 
         $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?: '{}';
 
         return <<<PROMPT
-        Gunakan data hasil TOPSIS berikut untuk membuat kesimpulan.
+            Berikan kesimpulan profesional sebagai sistem pendukung keputusan untuk kasus: "{$kasus}".
 
-        Data:
-        {$json}
+            Data Hasil Perhitungan:
+            {$json}
 
-        Instruksi:
-        1. Fokus hanya pada interpretasi hasil, bukan perhitungan.
-        2. Jangan menyebutkan ulang seluruh ranking.
-        3. Sebutkan:
-        - Alternatif terbaik (ranking 1)
-        - Alasan umum mengapa alternatif tersebut unggul
-        4. Singgung secara singkat pengaruh kriteria:
-        - benefit (nilai tinggi lebih baik)
-        - cost (nilai rendah lebih baik)
-        5. Berikan 1 alternatif cadangan terbaik (ranking 2) sebagai rekomendasi pengganti.
-        6. Gunakan bahasa sederhana, jelas, dan tidak bertele-tele (maksimal 3 paragraf pendek).
-        7. Gunakan data yang tersedia saja (dilarang mengarang atau mengubah angka).
-        8. Jangan menampilkan rumus atau proses perhitungan.
-        9. Tarik kesimpulan secara mendalam dan berikan saran jika perlu
+            Instruksi:
+            1. Berikan penjelasan mengapa alternatif peringkat 1 terpilih berdasarkan alur Hybrid SAW-TOPSIS.
+            2. Jelaskan pengaruh kriteria dengan bobot terbesar terhadap hasil akhir secara logis sesuai konteks "{$kasus}".
+            3. Sebutkan alternatif terbaik sebagai rekomendasi utama dan peringkat kedua sebagai cadangan.
+            4. Gunakan bahasa Indonesia yang formal, ringkas, dan mudah dimengerti oleh pengambil keputusan.
 
-        Format output WAJIB:
+            Format Output (Markdown):
+            **Rekomendasi Utama**
+            <Isi berdasarkan alternatif terbaik>
 
-        **Alternatif Terbaik**
-        <isi>
+            <space>
 
-        **Analisis Singkat**
-        <isi>
+            **Analisis Faktor Penentu**
+            <Isi berdasarkan kriteria yang paling berpengaruh>
 
-        **Rekomendasi Alternatif**
-        <isi>
+            <space>
 
-        Larangan:
-        - Jangan mengulang daftar ranking
-        - Jangan membuat paragraf panjang
-        - Jangan keluar dari format di atas
-        PROMPT;
+            **Saran Operasional**
+            <Isi saran praktis sesuai konteks {$kasus}>
+
+            Batasan: Maksimal 150 - 250 kata, dilarang menampilkan rumus, dilarang mengarang angka di luar data, dilarang memberikan data data crusial terkait sistem / database.
+            PROMPT;
     }
 
     /**
@@ -99,11 +93,12 @@ class TopsisAgent implements Agent, Conversational, HasTools
         array $criteria,
         array $alternatives,
         array $results,
+        array $sawResults,
         array $matrices = [],
     ): AgentResponse {
         return $this->prompt(
-            $this->buildConclusionPrompt($calculation, $criteria, $alternatives, $results, $matrices),
-            provider: Lab::Gemini,
+            $this->buildConclusionPrompt($calculation, $criteria, $alternatives, $results, $matrices, $sawResults),
+            provider: [Lab::Gemini, Lab::Groq],
         );
     }
 

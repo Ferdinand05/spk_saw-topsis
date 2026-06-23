@@ -28,7 +28,8 @@ class TopsisAgent implements Agent, Conversational, HasTools
      */
     public function instructions(): Stringable|string
     {
-        return "Anda adalah Pakar Sistem Pendukung Keputusan (SPK) yang membantu mahasiswa dalam menganalisis hasil pemilihan dan perankingan di PT Nilosa Rama Buana. Tugas Anda adalah menginterpretasikan data hasil hybrid SAW + TOPSIS menjadi rekomendasi manajerial yang mudah dipahami oleh pimpinan perusahaan.";
+        return "
+        Anda adalah analis Sistem Pendukung Keputusan yang menjelaskan hasil Hybrid SAW + TOPSIS secara profesional, ringkas, dan mudah dipahami. Tugas Anda adalah mengubah data angka menjadi analisis dan kesimpulan yang relevan untuk pengambilan keputusan. Fokus hanya pada data yang diberikan dalam payload.";
     }
 
     /**
